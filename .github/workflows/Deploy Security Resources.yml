@@ -35,7 +35,6 @@ jobs:
   deploy_to_production:
     needs: deploy_to_development
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
     environment: 
       name: production
     steps:
