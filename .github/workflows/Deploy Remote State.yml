@@ -31,4 +31,4 @@ jobs:
         run: |
           terraform init
           terraform apply -auto-approve
-        working-directory: ./security/environments/${{ github.event.inputs.environment }}
+        working-directory: ./security/environments/${{ github.event.inputs.environment }}/remote-state
