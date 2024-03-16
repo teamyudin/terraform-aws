@@ -7,35 +7,21 @@ on:
     paths:
       - 'security/**'
   workflow_dispatch:
-    inputs:
-      deployEnv:
-        description: 'Which environment to deploy to'
-        required: true
-        default: 'production'
 
 jobs:
-  setup_aws_credentials:
-    runs-on: ubuntu-latest
-    outputs:
-      AWS_ACCESS_KEY_ID: ${{ steps.aws_credentials.outputs.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ steps.aws_credentials.outputs.AWS_SECRET_ACCESS_KEY }}
-    steps:
-      - name: Configure AWS credentials from GitHub secrets
-        id: aws_credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: 'us-east-1' # Update this to your AWS region
-
   deploy_to_development:
-    needs: setup_aws_credentials
     runs-on: ubuntu-latest
     environment: 
       name: development
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      - name: Configure AWS Credentials for Development
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1  # Adjust as per your AWS region
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v1
         with:
@@ -45,30 +31,28 @@ jobs:
           terraform init
           terraform apply -auto-approve
         working-directory: ./security/environments/development
-        env:
-          AWS_ACCESS_KEY_ID: ${{ needs.setup_aws_credentials.outputs.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ needs.setup_aws_credentials.outputs.AWS_SECRET_ACCESS_KEY }}
 
   deploy_to_production:
     needs: deploy_to_development
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deployEnv == 'production'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
     environment: 
       name: production
-      url: ${{ steps.deploy_to_production.outputs.deployment-url }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      - name: Configure AWS Credentials for Production
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1  # Adjust as per your AWS region
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v1
         with:
           terraform_version: 1.0.0
       - name: Deploy to Production
-        id: deploy_to_production
         run: |
           terraform init
           terraform apply -auto-approve
         working-directory: ./security/environments/production
-        env:
-          AWS_ACCESS_KEY_ID: ${{ needs.setup_aws_credentials.outputs.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ needs.setup_aws_credentials.outputs.AWS_SECRET_ACCESS_KEY }}
